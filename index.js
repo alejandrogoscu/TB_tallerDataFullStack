@@ -11,24 +11,6 @@ const PORT = process.env.PORT || 3000;
 // MIDDLEWARE
 app.use(express.json());
 
-console.log('¿Swagger docs existe?', !!swaggerDocs);
-console.log('Swagger docs keys:', Object.keys(swaggerDocs || {}));
-
-// Después de las líneas anteriores, agregar:
-console.log('Configurando ruta /api-docs...');
-
-app.use(
-  '/api-docs',
-  (req, res, next) => {
-    console.log('Acceso a /api-docs detectado');
-    next();
-  },
-  swaggerUi.serve,
-  swaggerUi.setup(swaggerDocs)
-);
-
-console.log('Ruta /api-docs configurada');
-
 // DOCUMENTACIÓN SWAGGER
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 
