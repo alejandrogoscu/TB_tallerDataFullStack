@@ -1,5 +1,5 @@
 import { DataTypes } from 'sequelize';
-import sequelize from '../index.js';
+import sequelize from '../index.js'; // <-- Asegúrate de que esta ruta sea correcta
 
 const Colegio = sequelize.define(
   'colegio',

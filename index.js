@@ -9,6 +9,12 @@ const sequelize = new Sequelize(process.env.DB_URI);
 // MIDDLEWARE
 app.use(express.json());
 
+// Importa el router de colegios
+import colegioRouter from './routes/colegio.js';
+
+// Monta el router de colegios en la ruta /api/colegios
+app.use('/api/colegios', colegioRouter);
+
 (async () => {
   try {
     await sequelize.authenticate();
