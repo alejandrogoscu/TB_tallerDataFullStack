@@ -3,82 +3,181 @@ from streamlit_folium import st_folium
 import folium
 import pandas as pd
 import requests
+from folium.plugins import MarkerCluster
 
-# Configurar la página
-st.set_page_config(layout="wide")
-st.title("Mapa de Centros Educativos en Valencia")
+
+# --- Configurar página ---
+st.set_page_config(
+    page_title="Valencia Aprendes - Centros Educativos",
+    layout="wide",
+    initial_sidebar_state="auto"
+)
+
+# --- CSS personalizado ---
+st.markdown("""
+<style>
+    /* Fondo general */
+    body, .css-18e3th9 {
+        background: linear-gradient(135deg, #e0f3ff, #f7fbff);
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    /* Título principal */
+    .css-1v3fvcr h1 {
+        color: #003366;
+        font-weight: 700;
+        font-size: 2.8rem;
+        margin-bottom: 1rem;
+        text-align: center;
+    }
+
+    /* Subtítulos */
+    .stSubheader {
+        color: #00509e;
+        font-weight: 600;
+        margin-bottom: 0.75rem;
+    }
+
+    /* Selectbox styling */
+    div[data-baseweb="select"] > div {
+        background-color: #f0f8ff !important;
+        border-radius: 10px !important;
+        border: 1px solid #89c4f4 !important;
+        
+        color: #003366 !important;
+        font-weight: 600;
+    }
+
+    /* Tarjeta info centro */
+    .info-card {
+        background-color: #ffffffdd;
+        border-radius: 15px;
+        padding: 20px;
+        box-shadow: 0 4px 10px rgba(0, 80, 150, 0.15);
+        margin-top: 15px;
+        font-size: 1rem;
+        color: #004080;
+        line-height: 1.5;
+    }
+    .info-card strong {
+        color: #00264d;
+    }
+
+    /* Mensajes info y warnings */
+    .stAlert > div {
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 1rem;
+    }
+
+  
+</style>
+""", unsafe_allow_html=True)
 
 # --- Función para cargar datos desde la API ---
 @st.cache_data
 def cargar_centros():
     url = "https://tb-tallerdatafullstack.onrender.com/colegios"
-    response = requests.get(url)
-    if response.status_code == 200:
-        return pd.DataFrame(response.json())
-    else:
-        st.error("No se pudo cargar la información de los centros.")
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        df = pd.DataFrame(response.json())
+        # Asegurar columnas lat y lon son float
+        df['latitude'] = pd.to_numeric(df['latitude'], errors='coerce')
+        df['longitude'] = pd.to_numeric(df['longitude'], errors='coerce')
+        df.dropna(subset=['latitude', 'longitude'], inplace=True)
+        return df
+    except Exception as e:
+        st.error(f"No se pudo cargar la información de los centros: {e}")
         return pd.DataFrame()
 
 # --- Cargar datos ---
 df = cargar_centros()
 
-# --- Layout en 3 columnas ---
-col1, col2, col3 = st.columns([0.2, 0.6, 0.2])
+# --- Layout ---
+col1, col2, col3 = st.columns([0.15, 0.6, 0.25])
 
 # --- Columna 1: Filtros ---
 with col1:
-    st.subheader("🔎 Filtros")
+    st.subheader("Filtros")
 
-    municipios = ['Todos'] + sorted(df['municipio'].dropna().unique().tolist())
-    regimenes = ['Todos'] + sorted(df['regimen'].dropna().unique().tolist())
+    # Dropdown nombre colegio
+    nombres_colegios = ['Todos'] + sorted(df['nombre'].dropna().unique())
+    nombre = st.selectbox("Nombre del centro", nombres_colegios)
+
+    # Filtrar por nombre si elegido
+    df_filtrado = df.copy()
+    if nombre != 'Todos':
+        df_filtrado = df_filtrado[df_filtrado['nombre'] == nombre]
+
+    # Dropdown municipio y régimen basados en df_filtrado
+    municipios = ['Todos'] + sorted(df_filtrado['municipio'].dropna().unique())
+    regimenes = ['Todos'] + sorted(df_filtrado['regimen'].dropna().unique())
 
     municipio = st.selectbox("Municipio", municipios)
-    print(municipio)
     regimen = st.selectbox("Tipo de centro", regimenes)
-    print(regimen)
 
-# --- Filtrar dataframe ---
-if municipio != 'Todos':
-    df = df[df['municipio'] == municipio]
-if regimen != 'Todos':
-    df = df[df['regimen'] == regimen]
+    # Aplicar filtros restantes
+    if municipio != 'Todos':
+        df_filtrado = df_filtrado[df_filtrado['municipio'] == municipio]
+    if regimen != 'Todos':
+        df_filtrado = df_filtrado[df_filtrado['regimen'] == regimen]
 
 # --- Columna 2: Mapa ---
+
 with col2:
-    st.subheader("🗺️ Mapa de centros")
+    st.subheader("Mapa de centros")
 
-    m = folium.Map(location=[39.47, -0.38], zoom_start=12)
+    # Si se ha seleccionado un colegio, hacer zoom a él
+    if nombre != 'Todos' and not df_filtrado.empty:
+        centro_seleccionado = df_filtrado.iloc[0]
+        mapa = folium.Map(
+            location=[centro_seleccionado['latitude'], centro_seleccionado['longitude']],
+            zoom_start=15,
+            control_scale=True
+        )
+    else:
+        # Zoom por defecto en Valencia
+        mapa = folium.Map(location=[39.47, -0.38], zoom_start=12, control_scale=True)
 
-    for _, row in df.iterrows():
+    # Crear agrupación de marcadores
+    cluster = MarkerCluster().add_to(mapa)
+
+    # Añadir marcadores al cluster
+    for _, row in df_filtrado.iterrows():
         folium.Marker(
             location=[row["latitude"], row["longitude"]],
-            popup=row["nombre"],
-            icon=folium.Icon(color="blue", icon="graduation-cap", prefix="fa")
-        ).add_to(m)
+            icon=folium.Icon(color="blue", icon="graduation-cap", prefix="fa"),
+            tooltip=row['nombre']
+        ).add_to(cluster)
 
-    mapa_data = st_folium(m, width=800, height=500)
+    mapa_data = st_folium(mapa, width=850, height=500)
 
 # --- Columna 3: Detalles del centro ---
 with col3:
-    st.subheader("🏫 Información del centro")
+    st.subheader("Información")
 
     if mapa_data and mapa_data.get("last_object_clicked"):
         lat = mapa_data["last_object_clicked"]["lat"]
         lon = mapa_data["last_object_clicked"]["lng"]
 
-        centro = df[(df["latitude"] == lat) & (df["longitude"] == lon)]
+        centro = df_filtrado[(df_filtrado["latitude"] == lat) & (df_filtrado["longitude"] == lon)]
 
         if not centro.empty:
             c = centro.iloc[0]
-            st.markdown(f"**Nombre:** {c['nombre']}")
-            st.markdown(f"**Dirección:** {c['direccion']}")
-            st.markdown(f"**Municipio:** {c['municipio']}")
-            st.markdown(f"**Provincia:** {c['provincia']}")
-            st.markdown(f"**CP:** {c['CP']}")
-            st.markdown(f"**Régimen:** {c['regimen']}")
-            st.markdown(f"**Teléfono:** {c['telef']}")
-            st.markdown(f"**Email:** {c['mail']}")
+            st.markdown(f"""
+                <div class="info-card">
+                    <p><strong>Nombre:</strong> {c['nombre']}</p>
+                    <p><strong>Dirección:</strong> {c['direccion']}</p>
+                    <p><strong>Municipio:</strong> {c['municipio']}</p>
+                    <p><strong>Provincia:</strong> {c['provincia']}</p>
+                    <p><strong>CP:</strong> {c['CP']}</p>
+                    <p><strong>Régimen:</strong> {c['regimen']}</p>
+                    <p><strong>Teléfono:</strong> {c['telef']}</p>
+                    <p><strong>Email:</strong> {c['mail']}</p>
+                </div>
+            """, unsafe_allow_html=True)
         else:
-            st.write("No se pudo encontrar información del centro seleccionado.")
+            st.warning("No se pudo encontrar información del centro seleccionado.")
     else:
-        st.info("Haz clic en un centro del mapa para ver su información.")
+        st.info("Haz clic en un marcador del mapa para ver la información del centro.")
