@@ -1,14 +1,18 @@
 import express from 'express';
-import { Sequelize } from 'sequelize';
+import sequelize from './config/db.js';
+import ColegiosRoutes from './routes/colegios.js';
 import 'dotenv/config';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const sequelize = new Sequelize(process.env.DB_URI);
 
 // MIDDLEWARE
 app.use(express.json());
 
+// RUTAS
+app.use('/colegios', ColegiosRoutes);
+
+// CONEXIÓN DB Y SERVIDOR
 (async () => {
   try {
     await sequelize.authenticate();
