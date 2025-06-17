@@ -1,4 +1,5 @@
 import Colegio from '../models/Colegios.js';
+import { Op } from 'sequelize';
 
 const getAllColegios = async (req, res) => {
   try {
@@ -10,7 +11,7 @@ const getAllColegios = async (req, res) => {
   }
 };
 
-const getCollegiosRegimen = async (req, res) => {
+const getColegiosRegimen = async (req, res) => {
   try {
     const { regimen } = req.params;
     const colegios = await Colegio.findAll({ where: { regimen } });
@@ -26,7 +27,7 @@ const getCollegiosRegimen = async (req, res) => {
   }
 };
 
-const getCollegiosMunicipio = async (req, res) => {
+const getColegiosMunicipio = async (req, res) => {
   try {
     const { municipio } = req.params;
     const colegios = await Colegio.findAll({ where: { municipio } });
@@ -42,4 +43,17 @@ const getCollegiosMunicipio = async (req, res) => {
   }
 };
 
-export default { getAllColegios, getCollegiosRegimen, getCollegiosMunicipio };
+const getColegiosNombre = async (req, res) => {
+  try {
+    const colegios = await Colegio.findAll({
+      where: { nombre: { [Op.like]: `%${req.params.nombre}%` } },
+    });
+
+    res.status(200).json(colegios);
+  } catch (error) {
+    console.error('Error al obtener el colegio', error);
+    res.status(500).json({ mensaje: 'Error del servidor' });
+  }
+};
+
+export default { getAllColegios, getColegiosRegimen, getColegiosMunicipio, getColegiosNombre };
