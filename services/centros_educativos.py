@@ -257,7 +257,7 @@ if centro_seleccionado is not None:
     if pregunta_usuario:
         # Construir prompt con contexto + pregunta del usuario
         prompt_personalizado = (
-            f"Tengo una pregunta sobre un centro educativo llamado '{c['nombre']}', "
+            f"Tengo una pregunta sobre un centro educativo llamado '{centro_seleccionado['nombre']}', "
             f"La pregunta es: {pregunta_usuario}"
         )
 
